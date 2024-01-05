@@ -1,0 +1,34 @@
+# The main job for csv_to_pipe
+resources:
+  jobs:
+    csv_to_pipe_job:
+      name: csv_to_pipe_job
+
+      schedule:
+        quartz_cron_expression: '44 37 8 * * ?'
+        timezone_id: Europe/Amsterdam
+
+      email_notifications:
+        on_failure:
+          - david.finch@databricks.com
+
+      tasks:
+        - task_key: main_task
+          job_cluster_key: job_cluster
+          python_wheel_task:
+            package_name: csv_to_pipe
+            entry_point: pipe
+          libraries:
+            # By default we just include the .whl file generated for the csv_to_pipe package.
+            # See https://docs.databricks.com/dev-tools/bundles/library-dependencies.html
+            # for more information on how to add other libraries.
+            - whl: ../dist/*.whl
+
+      job_clusters:
+        - job_cluster_key: job_cluster
+          new_cluster:
+            spark_version: 13.3.x-scala2.12
+            node_type_id: Standard_D3_v2
+            autoscale:
+                min_workers: 1
+                max_workers: 4
