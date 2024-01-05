@@ -1,6 +1,7 @@
 import ast
 import configparser
 import pathlib
+import re
 
 from databricks.connect import DatabricksSession
 from pyspark.sql import SparkSession, DataFrame
@@ -91,13 +92,8 @@ def csv_to_pipe() -> None:
     data_processing_config.read(data_processing_config_path)
 
     data_cleanup = ast.literal_eval(data_processing_config["options"]["data_cleanup"])
-    source_path = ast.literal_eval(data_processing_config["paths"]["source"])
-    pipe_delim_destination = ast.literal_eval(
-        data_processing_config["paths"]["pipe_delim_destination"]
-    )
-    table_destination = ast.literal_eval(
-        data_processing_config["paths"]["table_destination"]
-    )
+    create_tables = ast.literal_eval(data_processing_config["options"]["create_test_table"])
+    data = ast.literal_eval(data_processing_config["paths"]["data"])
 
     # Get or Create SparkSession
     SparkSession.builder = DatabricksSession.builder
@@ -105,21 +101,38 @@ def csv_to_pipe() -> None:
 
     # Removes pipe_delim files & tables IF "data_cleanup" is set to True in "data_processing_config.ini"
     if data_cleanup == True:
-        dbutils.fs.rm(pipe_delim_destination, recurse=True)
-        source_files = dbutils.fs.ls(source_path)
-        for source_file in source_files:
-            table_path = f'{table_destination}.pipe_test_{source_file.name.split(".")[0].replace(" ","_")}'
-            spark.sql(f"DROP TABLE {table_path}")
-    else:
-        source_files = dbutils.fs.ls(source_path)
-        for source_file in source_files:
-            csv_path = source_file.path
-            pipe_delim_path = f'{pipe_delim_destination}/{source_file.name.split(".")[0]}'
-            table_path = f'{table_destination}.pipe_test_{source_file.name.split(".")[0].replace(" ","_")}'
-            df = read_csv(spark, csv_path)
-            write_csv(df, pipe_delim_path, "||")
-            save_to_table(df, table_path)
+        for data_set in data:
+            data_source = data_set["data_source"]
+            data_destination = data_set["data_destination"]
+            data_table_destination = data_set["table_destination"]
 
+            dbutils.fs.rm(data_destination, recurse=True)
+            source_files = dbutils.fs.ls(data_source)
+            for source_file in source_files:
+                name = re.sub("[^a-zA-Z0-9]", "_", "_".join(source_file.name.split(".")[:-1]))
+                table_path = f'{data_table_destination}.test_{name}'
+                try:
+                    spark.sql(f"DROP TABLE {table_path}")
+                except:
+                    print(f"Table Not Found: {table_path}")
+
+    # Converts "," delim files to "||" delim files & if "create_tables" is set to true then it creates a table
+    else:
+        for data_set in data:
+            data_source = data_set["data_source"]
+            data_destination = data_set["data_destination"]
+            data_table_destination = data_set["table_destination"]
+
+            source_files = dbutils.fs.ls(data_source)
+            for source_file in source_files:
+                csv_path = source_file.path
+                name = re.sub("[^a-zA-Z0-9]", "_", "_".join(source_file.name.split(".")[:-1]))
+                pipe_delim_path = f'{data_destination}/{name}'
+                table_path = f'{data_table_destination}.test_{name}'
+                df = read_csv(spark, csv_path)
+                write_csv(df, pipe_delim_path, "||")
+                if create_tables==True:
+                    save_to_table(df, table_path)
 
 if __name__ == "__main__":
     csv_to_pipe()
