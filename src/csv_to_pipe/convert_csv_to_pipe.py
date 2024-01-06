@@ -78,11 +78,11 @@ def read_table(spark: SparkSession, table_location: str) -> DataFrame:
 
 def csv_to_pipe() -> None:
     """Processes the uploaded data files. For each file located in the source path:
-        1. Reads the "," csv file from Volumes into a Spark DataFrame
-        2. Writes the Spark DataFrame as a "||" delimited file to Volumes
-        3. Saves the Spark DataFrame as a Delta Table
+    1. Reads the "," csv file from Volumes into a Spark DataFrame
+    2. Writes the Spark DataFrame as a "||" delimited file to Volumes
+    3. Saves the Spark DataFrame as a Delta Table
 
-        IF "data_cleanup" is set to TRUE in the config, then the files and tables will be removed
+    IF "data_cleanup" is set to TRUE in the config, then the files and tables will be removed
     """
     # Read "data_processing_config.ini" & parse configs
     data_processing_config_path = (
@@ -92,7 +92,9 @@ def csv_to_pipe() -> None:
     data_processing_config.read(data_processing_config_path)
 
     data_cleanup = ast.literal_eval(data_processing_config["options"]["data_cleanup"])
-    create_tables = ast.literal_eval(data_processing_config["options"]["create_test_table"])
+    create_tables = ast.literal_eval(
+        data_processing_config["options"]["create_test_table"]
+    )
     data = ast.literal_eval(data_processing_config["paths"]["data"])
 
     # Get or Create SparkSession
@@ -109,8 +111,10 @@ def csv_to_pipe() -> None:
             dbutils.fs.rm(data_destination, recurse=True)
             source_files = dbutils.fs.ls(data_source)
             for source_file in source_files:
-                name = re.sub("[^a-zA-Z0-9]", "_", "_".join(source_file.name.split(".")[:-1]))
-                table_path = f'{data_table_destination}.test_{name}'
+                name = re.sub(
+                    "[^a-zA-Z0-9]", "_", "_".join(source_file.name.split(".")[:-1])
+                ).lower()
+                table_path = f"{data_table_destination}.test_{name}"
                 try:
                     spark.sql(f"DROP TABLE {table_path}")
                 except:
@@ -126,13 +130,16 @@ def csv_to_pipe() -> None:
             source_files = dbutils.fs.ls(data_source)
             for source_file in source_files:
                 csv_path = source_file.path
-                name = re.sub("[^a-zA-Z0-9]", "_", "_".join(source_file.name.split(".")[:-1]))
-                pipe_delim_path = f'{data_destination}/{name}'
-                table_path = f'{data_table_destination}.test_{name}'
+                name = re.sub(
+                    "[^a-zA-Z0-9]", "_", "_".join(source_file.name.split(".")[:-1])
+                ).lower()
+                pipe_delim_path = f"{data_destination}/{name}"
+                table_path = f"{data_table_destination}.test_{name}"
                 df = read_csv(spark, csv_path)
                 write_csv(df, pipe_delim_path, "||")
-                if create_tables==True:
+                if create_tables == True:
                     save_to_table(df, table_path)
+
 
 if __name__ == "__main__":
     csv_to_pipe()
