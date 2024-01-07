@@ -125,13 +125,15 @@ def csv_to_pipe() -> None:
 
             # Remove "||" directory
             dbutils.fs.rm(data_destination, recurse=True)
+            print(f"Removed directory: {data_destination}")
             source_files = dbutils.fs.ls(data_source)
+
+            # Remove tables
             for source_file in source_files:
                 name = re.sub(
                     "[^a-zA-Z0-9]", "_", "_".join(source_file.name.split(".")[:-1])
                 ).lower()
                 table_path = f"{data_table_destination}.test_{name}"
-                # Remove table
                 try:
                     spark.sql(f"DROP TABLE {table_path}")
                     print(f"Dropped table: {table_path}")
@@ -154,15 +156,15 @@ def csv_to_pipe() -> None:
                 pipe_delim_path = f"{data_destination}/{name}"
                 table_path = f"{data_table_destination}.test_{name}"
 
-                # Read csv
+                # Read csv files
                 df = read_csv(spark, csv_path)
                 print(f"Read CSV File: {csv_path}")
 
-                # Write csv
+                # Write "||" delim csv files
                 write_csv(df, pipe_delim_path, "||")
                 print(f'Created "||" delim file: {pipe_delim_path}')
 
-                # Create table
+                # Create tables
                 if create_tables == True:
                     save_to_table(df, table_path)
                     print(f"Created table: {table_path}")
