@@ -3,7 +3,6 @@ import configparser
 import pathlib
 import re
 
-from databricks.connect import DatabricksSession
 from pyspark.sql import SparkSession, DataFrame
 
 
@@ -76,6 +75,22 @@ def read_table(spark: SparkSession, table_location: str) -> DataFrame:
     return df
 
 
+def get_dbutils(spark: SparkSession):
+    dbutils = None
+
+    if spark.conf.get("spark.databricks.service.client.enabled") == "true":
+        from pyspark.dbutils import DBUtils
+
+        dbutils = DBUtils(spark)
+
+    else:
+        import IPython
+
+        dbutils = IPython.get_ipython().user_ns["dbutils"]
+
+    return dbutils
+
+
 def csv_to_pipe() -> None:
     """Processes the uploaded data files. For each file located in the source path:
     1. Reads the "," csv file from Volumes into a Spark DataFrame
@@ -97,9 +112,9 @@ def csv_to_pipe() -> None:
     )
     data = ast.literal_eval(data_processing_config["paths"]["data"])
 
-    # Get or Create SparkSession
-    SparkSession.builder = DatabricksSession.builder
+    # Get or Create SparkSession & dbutils
     spark = SparkSession.builder.getOrCreate()
+    dbutils = get_dbutils(spark)
 
     # Removes pipe_delim files & tables IF "data_cleanup" is set to True in "data_processing_config.ini"
     if data_cleanup == True:
@@ -108,6 +123,7 @@ def csv_to_pipe() -> None:
             data_destination = data_set["data_destination"]
             data_table_destination = data_set["table_destination"]
 
+            # Remove "||" directory
             dbutils.fs.rm(data_destination, recurse=True)
             source_files = dbutils.fs.ls(data_source)
             for source_file in source_files:
@@ -115,8 +131,10 @@ def csv_to_pipe() -> None:
                     "[^a-zA-Z0-9]", "_", "_".join(source_file.name.split(".")[:-1])
                 ).lower()
                 table_path = f"{data_table_destination}.test_{name}"
+                # Remove table
                 try:
                     spark.sql(f"DROP TABLE {table_path}")
+                    print(f"Dropped table: {table_path}")
                 except:
                     print(f"Table Not Found: {table_path}")
 
@@ -135,10 +153,19 @@ def csv_to_pipe() -> None:
                 ).lower()
                 pipe_delim_path = f"{data_destination}/{name}"
                 table_path = f"{data_table_destination}.test_{name}"
+
+                # Read csv
                 df = read_csv(spark, csv_path)
+                print(f"Read CSV File: {csv_path}")
+
+                # Write csv
                 write_csv(df, pipe_delim_path, "||")
+                print(f'Created "||" delim file: {pipe_delim_path}')
+
+                # Create table
                 if create_tables == True:
                     save_to_table(df, table_path)
+                    print(f"Created table: {table_path}")
 
 
 if __name__ == "__main__":
