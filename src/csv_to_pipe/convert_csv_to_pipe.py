@@ -130,9 +130,9 @@ def csv_to_pipe() -> None:
 
             # Remove tables
             for source_file in source_files:
-                name = re.sub(
-                    "[^a-zA-Z0-9]", "_", "_".join(source_file.name.split(".")[:-1])
-                ).lower()
+                name = (
+                    "_".join(source_file.name.split(".")[:-1]).replace(" ", "_").lower()
+                )
                 table_path = f"{data_table_destination}.test_{name}"
                 try:
                     spark.sql(f"DROP TABLE {table_path}")
@@ -150,9 +150,9 @@ def csv_to_pipe() -> None:
             source_files = dbutils.fs.ls(data_source)
             for source_file in source_files:
                 csv_path = source_file.path
-                name = re.sub(
-                    "[^a-zA-Z0-9]", "_", "_".join(source_file.name.split(".")[:-1])
-                ).lower()
+                name = (
+                    "_".join(source_file.name.split(".")[:-1]).replace(" ", "_").lower()
+                )
                 pipe_delim_path = f"{data_destination}/{name}"
                 table_path = f"{data_table_destination}.test_{name}"
 
