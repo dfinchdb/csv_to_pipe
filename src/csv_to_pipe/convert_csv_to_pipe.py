@@ -25,7 +25,6 @@ def read_csv(spark: SparkSession, source: str, delim: str = ",") -> DataFrame:
     df = (
         spark.read.format("csv")
         .option("delimiter", delim)
-        .option("inferSchema", "True")
         .option("header", "True")
         .load(source)
     )
